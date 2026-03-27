@@ -14,7 +14,8 @@ try {
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 const CONFIG = {
-  SERVER_URL: 'ws://localhost:3001',           // WebSocket endpoint
+  // Using Render-hosted service by default (secure websockets)
+  SERVER_URL: 'wss://watchink-server.onrender.com',
   DRIFT_THRESHOLD_MS: 500,                      // Seek if drift > 500ms
   DRIFT_CHECK_INTERVAL: 3000,                   // Check drift every 3s
   SYNC_DEBOUNCE_MS: 300,                        // Debounce event sends
@@ -27,6 +28,7 @@ const CONFIG = {
 const STATE = {
   socket: null,
   roomId: null,
+  pendingRoomId: null,
   username: null,
   isHost: false,
   isMuted: false,                               // Mute sync toggle
@@ -453,6 +455,7 @@ function handleBackgroundMessage(msg) {
     case 'ROOM_CREATED':
       console.log('[WatchInk] ROOM_CREATED received with roomId:', msg.roomId);
       STATE.roomId = msg.roomId;
+      STATE.pendingRoomId = null;
       STATE.isHost = true;
       STATE.users = msg.users || [];
       console.log('[WatchInk] Saving room to storage:', msg.roomId);
@@ -465,6 +468,7 @@ function handleBackgroundMessage(msg) {
 
     case 'ROOM_JOINED':
       STATE.roomId = msg.roomId;
+      STATE.pendingRoomId = null;
       STATE.isHost = false;
       STATE.users = msg.users || [];
       chrome.storage.local.set({ wi_room: msg.roomId, wi_host: false });
@@ -485,6 +489,11 @@ function handleBackgroundMessage(msg) {
 
     case 'ROOM_ERROR':
       showToast(msg.message || 'Room error', 'error');
+      STATE.roomId = null;
+      STATE.pendingRoomId = null;
+      STATE.isHost = false;
+      STATE.users = [];
+      chrome.storage.local.remove(['wi_room', 'wi_host']);
       showWelcomeModal();
       break;
 
@@ -506,7 +515,7 @@ function handleBackgroundMessage(msg) {
       if (msg.currentUrl && msg.currentUrl !== location.href) {
         console.log('[WatchInk] Syncing to new URL:', msg.currentUrl);
         STATE.isNavigatingAway = true;
-        stopDriftChecker();  // Stop before navigation
+        stopDriftChecker();
         window.location.href = msg.currentUrl;
         return;
       }
@@ -518,7 +527,7 @@ function handleBackgroundMessage(msg) {
       if (msg.currentUrl && msg.currentUrl !== location.href) {
         console.log('[WatchInk] Syncing to new URL:', msg.currentUrl);
         STATE.isNavigatingAway = true;
-        stopDriftChecker();  // Stop before navigation
+        stopDriftChecker();
         window.location.href = msg.currentUrl;
         return;
       }
@@ -530,7 +539,7 @@ function handleBackgroundMessage(msg) {
       if (msg.currentUrl && msg.currentUrl !== location.href) {
         console.log('[WatchInk] Syncing to new URL:', msg.currentUrl);
         STATE.isNavigatingAway = true;
-        stopDriftChecker();  // Stop before navigation
+        stopDriftChecker();
         window.location.href = msg.currentUrl;
         return;
       }
@@ -676,17 +685,12 @@ function attachVideoListeners(vid) {
   videoListenersAttached = true;
 
   vid.addEventListener('play', () => {
-    if (STATE.isSyncing || !STATE.isHost || !STATE.roomId) return;
+    if (STATE.isSyncing || !STATE.roomId) return;
     sendToBackground('EMIT_PLAY', { roomId: STATE.roomId, currentTime: vid.currentTime, currentUrl: location.href });
   });
 
   vid.addEventListener('pause', () => {
-    // If guest tries to pause, just ignore it (don't send pause events)
-    if (!STATE.isHost && !STATE.isMuted && STATE.roomId) {
-      return;
-    }
-    // Only host can send pause events
-    if (STATE.isSyncing || !STATE.isHost || !STATE.roomId) return;
+    if (STATE.isSyncing || !STATE.roomId) return;
     sendToBackground('EMIT_PAUSE', { roomId: STATE.roomId, currentTime: vid.currentTime, currentUrl: location.href });
   });
 
@@ -932,15 +936,25 @@ async function init() {
   STATE.username = stored.wi_username || generateUsername();
   STATE.isMuted = stored.wi_muted || false;
   chrome.storage.local.set({ wi_username: STATE.username });
-  if (stored.wi_room) { STATE.roomId = stored.wi_room; STATE.isHost = stored.wi_host || false; }
 
-  console.log('[WatchInk] Loaded state. Username:', STATE.username, 'RoomId:', STATE.roomId);
+  // Keep a pending room to rejoin if the server accepts it; do not assume legacy room is valid.
+  if (stored.wi_room) {
+    STATE.pendingRoomId = stored.wi_room;
+    STATE.isHost = stored.wi_host || false;
+  }
 
-  sendToBackground('INIT_SOCKET', { serverUrl: CONFIG.SERVER_URL, username: STATE.username, roomId: STATE.roomId, isHost: STATE.isHost });
+  console.log('[WatchInk] Loaded state. Username:', STATE.username, 'PendingRoomId:', STATE.pendingRoomId);
 
-  // Delay 1.5s so Disney+ finishes its own render before we inject the modal
+  sendToBackground('INIT_SOCKET', {
+    serverUrl: CONFIG.SERVER_URL,
+    username: STATE.username,
+    roomId: STATE.pendingRoomId,
+    isHost: STATE.isHost,
+  });
+
+  // Delay 1.5s so the page renders before we inject UI
   setTimeout(() => {
-    console.log('[WatchInk] Showing UI. Has room:', !!STATE.roomId);
+    console.log('[WatchInk] Showing UI. Has active room:', !!STATE.roomId);
     if (!STATE.roomId) showWelcomeModal();
     else { renderHUD(); startDriftChecker(); }
   }, 1500);

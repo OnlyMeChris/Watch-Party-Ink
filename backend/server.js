@@ -19,7 +19,7 @@ const http = require('http');
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 const CONFIG = {
-  PORT: process.env.PORT || 3001,
+  PORT: 'wss://watchink-server.onrender.com',
   ROOM_EXPIRY_MS: 4 * 60 * 60 * 1000,     // 4 hours
   ROOM_CLEANUP_INTERVAL: 10 * 60 * 1000,   // Check every 10 min
   MAX_USERS_PER_ROOM: 20,

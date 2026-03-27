@@ -13,7 +13,7 @@
 let ws = null;
 let isConnected = false;
 let reconnectTimer = null;
-let serverUrl = 'ws://localhost:3001';
+let serverUrl = 'wss://watchink-server.onrender.com';
 let pendingRoom = null;  // For re-joining after reconnect
 let activeTabId = null;
 

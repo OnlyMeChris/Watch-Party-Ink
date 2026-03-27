@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Background -->
+  <rect width="128" height="128" rx="28" fill="#E5173F"/>
+  <!-- Play arrow -->
+  <polygon points="44,32 44,96 96,64" fill="white" opacity="0.95"/>
+  <!-- Ink dot accent -->
+  <circle cx="38" cy="38" r="8" fill="white" opacity="0.3"/>
+</svg>

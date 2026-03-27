@@ -26,8 +26,10 @@ chrome.tabs.onUpdated.addListener((tabId, info) => {
 // ─── Relay message to content script ─────────────────────────────────────────
 async function sendToContent(data) {
   try {
-    // Find all tabs where the content script may be running
-    const tabs = await chrome.tabs.query({ url: ['https://*/*', 'http://*/*'] });
+    // Find Disney+ tabs
+    const tabs = await chrome.tabs.query({
+      url: ['https://*.disneyplus.com/*', 'https://*.apps.disneyplus.com/*']
+    });
     console.log('[WatchInk BG] Sending to', tabs.length, 'tabs:', data.type);
     for (const tab of tabs) {
       console.log('[WatchInk BG] Sending to tab', tab.id, 'message:', data.type);

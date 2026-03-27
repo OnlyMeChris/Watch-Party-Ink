@@ -344,9 +344,9 @@ function handleNextEpisode(ws, data) {
   if (!isHost(room, ws)) return;
 
   if (!data.targetUrl || typeof data.targetUrl !== 'string') return;
-  // Security: only allow http/https URLs (no javascript:, data:, etc.)
-  if (!data.targetUrl.startsWith('https://') && !data.targetUrl.startsWith('http://')) {
-    console.warn('[WatchInk] Blocked non-HTTP URL:', data.targetUrl);
+  // Security: only allow disneyplus.com URLs
+  if (!data.targetUrl.startsWith('https://www.disneyplus.com') && !data.targetUrl.startsWith('https://disneyplus.com')) {
+    console.warn('[WatchInk] Blocked non-Disney+ URL:', data.targetUrl);
     return;
   }
 

@@ -14,7 +14,7 @@ try {
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 const CONFIG = {
-  SERVER_URL: 'wss://watchink-server.onrender.com',           // WebSocket endpoint
+  SERVER_URL: 'ws://localhost:3001',           // WebSocket endpoint
   DRIFT_THRESHOLD_MS: 500,                      // Seek if drift > 500ms
   DRIFT_CHECK_INTERVAL: 3000,                   // Check drift every 3s
   SYNC_DEBOUNCE_MS: 300,                        // Debounce event sends

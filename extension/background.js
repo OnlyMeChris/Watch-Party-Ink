@@ -13,7 +13,7 @@
 let ws = null;
 let isConnected = false;
 let reconnectTimer = null;
-let serverUrl = 'ws://localhost:3001';
+let serverUrl = 'wss://watchink-server.onrender.com';
 let pendingRoom = null;  // For re-joining after reconnect
 let activeTabId = null;
 
@@ -26,9 +26,16 @@ chrome.tabs.onUpdated.addListener((tabId, info) => {
 // ─── Relay message to content script ─────────────────────────────────────────
 async function sendToContent(data) {
   try {
-    // Find Disney+ tabs
+    // Find supported watch tabs (Disney+, Netflix, Prime Video, YouTube)
     const tabs = await chrome.tabs.query({
-      url: ['https://*.disneyplus.com/*', 'https://*.apps.disneyplus.com/*']
+      url: [
+        'https://*.disneyplus.com/*',
+        'https://*.apps.disneyplus.com/*',
+        'https://*.netflix.com/*',
+        'https://*.primevideo.com/*',
+        'https://*.youtube.com/*',
+        'https://*.youtu.be/*'
+      ]
     });
     console.log('[WatchInk BG] Sending to', tabs.length, 'tabs:', data.type);
     for (const tab of tabs) {
@@ -236,6 +243,12 @@ function handleContentMessage(msg, sender) {
         isHost: msg.isHost,
       };
       connectWebSocket(serverUrl);
+      break;
+
+    case 'OPEN_PANEL':
+      // Instruct all watched tabs to open the WatchInk panel or welcome modal.
+      console.log('[WatchInk BG] OPEN_PANEL requested from popup');
+      sendToContent({ type: 'OPEN_PANEL' });
       break;
 
     case 'EMIT_PLAY':

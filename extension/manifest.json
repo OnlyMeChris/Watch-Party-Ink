@@ -23,7 +23,17 @@
     {
       "matches": [
         "https://*.disneyplus.com/*",
-        "https://*.apps.disneyplus.com/*"
+        "https://*.apps.disneyplus.com/*",
+        "https://*.netflix.com/*",
+        "https://netflix.com/*",
+        "https://*.primevideo.com/*",
+        "https://primevideo.com/*",
+        "https://*.amazon.com/*",
+        "https://amazon.com/*",
+        "https://*.youtube.com/*",
+        "https://youtube.com/*",
+        "https://*.youtu.be/*",
+        "https://youtu.be/*"
       ],
       "js": ["content.js"],
       "run_at": "document_end"
@@ -39,13 +49,36 @@
   "host_permissions": [
     "https://*.disneyplus.com/*",
     "https://*.apps.disneyplus.com/*",
-    "http://localhost:3001/*",
-    "ws://localhost:3001/*"
+    "https://*.netflix.com/*",
+    "https://netflix.com/*",
+    "https://*.primevideo.com/*",
+    "https://primevideo.com/*",
+    "https://*.amazon.com/*",
+    "https://amazon.com/*",
+    "https://*.youtube.com/*",
+    "https://youtube.com/*",
+    "https://*.youtu.be/*",
+    "https://youtu.be/*",
+    "https://watchink-server.onrender.com/*",
+    "wss://watchink-server.onrender.com/*"
   ],
   "web_accessible_resources": [
     {
       "resources": ["icons/*", "styles.css"],
-      "matches": ["https://*.disneyplus.com/*", "https://*.apps.disneyplus.com/*"]
+      "matches": [
+        "https://*.disneyplus.com/*",
+        "https://*.apps.disneyplus.com/*",
+        "https://*.netflix.com/*",
+        "https://netflix.com/*",
+        "https://*.primevideo.com/*",
+        "https://primevideo.com/*",
+        "https://*.amazon.com/*",
+        "https://amazon.com/*",
+        "https://*.youtube.com/*",
+        "https://youtube.com/*",
+        "https://*.youtu.be/*",
+        "https://youtu.be/*"
+      ]
     }
   ]
 }

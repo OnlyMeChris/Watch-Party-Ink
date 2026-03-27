@@ -269,7 +269,6 @@ function removeUserFromRoom(room, roomId, username) {
 function handlePlay(ws, data) {
   const room = getRoomForClient(ws, data);
   if (!room) return;
-  if (!isHost(room, ws)) return;  // Only host can broadcast play
 
   if (data.currentUrl) {
     room.currentUrl = data.currentUrl;
@@ -286,7 +285,6 @@ function handlePlay(ws, data) {
 function handlePause(ws, data) {
   const room = getRoomForClient(ws, data);
   if (!room) return;
-  if (!isHost(room, ws)) return;
 
   if (data.currentUrl) {
     room.currentUrl = data.currentUrl;
@@ -303,7 +301,7 @@ function handlePause(ws, data) {
 function handleSeek(ws, data) {
   const room = getRoomForClient(ws, data);
   if (!room) return;
-  if (!isHost(room, ws)) return;
+  if (!isHost(room, ws)) return;  // Only host can seek to prevent desync
 
   if (data.currentUrl) {
     room.currentUrl = data.currentUrl;
@@ -344,9 +342,10 @@ function handleNextEpisode(ws, data) {
   if (!isHost(room, ws)) return;
 
   if (!data.targetUrl || typeof data.targetUrl !== 'string') return;
-  // Security: only allow disneyplus.com URLs
-  if (!data.targetUrl.startsWith('https://www.disneyplus.com') && !data.targetUrl.startsWith('https://disneyplus.com')) {
-    console.warn('[WatchInk] Blocked non-Disney+ URL:', data.targetUrl);
+  
+  // Validate URL is HTTPS
+  if (!data.targetUrl.startsWith('https://')) {
+    console.warn('[WatchInk] Blocked non-HTTPS URL:', data.targetUrl);
     return;
   }
 

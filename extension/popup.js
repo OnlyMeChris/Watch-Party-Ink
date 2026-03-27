@@ -5,8 +5,26 @@
 
 'use strict';
 
+function isSupportedUrl(url) {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    const host = parsed.host.toLowerCase();
+    return [
+      'disneyplus.com',
+      'netflix.com',
+      'primevideo.com',
+      'youtube.com',
+      'youtu.be',
+      'amazon.com'
+    ].some(s => host === s || host.endsWith('.' + s));
+  } catch (e) {
+    return false;
+  }
+}
+
 async function init() {
-  const openDisneyBtn = document.getElementById('open-disney-btn');
+  const openSiteBtn = document.getElementById('open-disney-btn');
   const openWatchinkBtn = document.getElementById('open-watchink-btn');
   const statusTitle = document.getElementById('status-title');
   const statusSub = document.getElementById('status-sub');
@@ -14,30 +32,55 @@ async function init() {
   const statusIcon = document.getElementById('status-icon');
   const roomInfoText = document.getElementById('room-info-text');
 
-  // Search for Disney+ tab with multiple strategies
-  let disneyTab = null;
+  // Search for supported sites with multiple strategies
+  const supportedHosts = ['disneyplus.com', 'netflix.com', 'primevideo.com', 'youtube.com', 'youtu.be', 'amazon.com'];
 
-  // Strategy 1: Exact URL match with pattern
-  let tabs = await chrome.tabs.query({
-    url: ['https://www.disneyplus.com/*', 'https://disneyplus.com/*']
-  });
+  const queryPatterns = [
+    'https://*.disneyplus.com/*',
+    'https://*.apps.disneyplus.com/*',
+    'https://*.netflix.com/*',
+    'https://*.primevideo.com/*',
+    'https://primevideo.com/*',
+    'https://*.youtube.com/*',
+    'https://*.youtu.be/*'
+  ];
 
-  if (tabs.length > 0) {
-    disneyTab = tabs[0];
-  } else {
-    // Strategy 2: Check all tabs for Disney+ in URL
-    const allTabs = await chrome.tabs.query({});
-    for (const tab of allTabs) {
-      if (tab.url && tab.url.includes('disneyplus.com')) {
-        disneyTab = tab;
+  let activeTab = null;
+
+  // First check the current active tab in the focused window
+  const currentTabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (currentTabs.length > 0 && currentTabs[0].url && isSupportedUrl(currentTabs[0].url)) {
+    activeTab = currentTabs[0];
+  }
+
+  // Next look through explicit query list (supports non-focused windows)
+  if (!activeTab) {
+    const tabs = await chrome.tabs.query({ url: queryPatterns });
+    for (const tab of tabs) {
+      if (tab.url && isSupportedUrl(tab.url)) {
+        activeTab = tab;
         break;
       }
     }
   }
 
-  if (disneyTab) {
-    openDisneyBtn.style.display = 'none';
+  // Finally fallback to scanning all tabs with strict host matching
+  if (!activeTab) {
+    const allTabs = await chrome.tabs.query({});
+    for (const tab of allTabs) {
+      if (tab.url && isSupportedUrl(tab.url)) {
+        activeTab = tab;
+        break;
+      }
+    }
+  }
+
+  if (activeTab) {
+    openSiteBtn.style.display = 'none';
     openWatchinkBtn.style.display = 'flex';
+
+    const matchedHost = supportedHosts.find(host => activeTab.url.includes(host));
+    const siteName = matchedHost ? matchedHost.replace('www.', '') : 'Supported site';
 
     // Check stored room state
     const stored = await chrome.storage.local.get(['wi_room', 'wi_username', 'wi_host']);
@@ -53,65 +96,59 @@ async function init() {
       roomInfoText.style.color = '#E5173F';
       roomInfoText.style.fontWeight = '600';
     } else {
-      statusTitle.textContent = 'Disney+ is open';
+      statusTitle.textContent = `${siteName} is open`;
       statusSub.textContent = 'Click below to open WatchInk';
       statusDot.className = 'dot connected';
       statusIcon.textContent = '✦';
     }
 
-    // Bring Disney+ tab to focus and trigger panel open
+    // Bring the active supported content tab to focus and open panel
     openWatchinkBtn.addEventListener('click', async () => {
       try {
-        console.log('[WatchInk Popup] Clicking WatchInk button, tab ID:', disneyTab.id);
-        
-        // Activate the tab
-        await chrome.tabs.update(disneyTab.id, { active: true });
-        
-        // Try to focus the window (with error handling)
-        if (disneyTab.windowId) {
-          try {
-            await chrome.windows.update(disneyTab.windowId, { focused: true });
-          } catch (e) {
-            console.warn('[WatchInk Popup] Could not focus window:', e);
+        console.log('[WatchInk Popup] Clicking WatchInk button');
+
+        if (activeTab?.id) {
+          await chrome.tabs.update(activeTab.id, { active: true });
+          if (activeTab.windowId) {
+            try {
+              await chrome.windows.update(activeTab.windowId, { focused: true });
+            } catch (e) {
+              console.warn('[WatchInk Popup] Could not focus window:', e);
+            }
           }
         }
-        
-        // Try to send message with retry logic
-        let messageAttempts = 0;
-        const sendPanelMessage = () => {
-          messageAttempts++;
-          console.log('[WatchInk Popup] Sending OPEN_PANEL message (attempt ' + messageAttempts + ')');
-          chrome.tabs.sendMessage(disneyTab.id, { type: 'OPEN_PANEL' }, (response) => {
-            if (chrome.runtime.lastError) {
-              console.warn('[WatchInk Popup] Message failed:', chrome.runtime.lastError.message);
-              // Retry once if it failed due to timing
-              if (messageAttempts < 2) {
-                console.log('[WatchInk Popup] Retrying message in 300ms...');
-                setTimeout(sendPanelMessage, 300);
-              }
-            } else {
-              console.log('[WatchInk Popup] Message sent successfully, response:', response);
-            }
-          });
-        };
-        
-        // First attempt after small delay
-        setTimeout(sendPanelMessage, 200);
-        
+
+        // Route through background to make message delivery robust.
+        chrome.runtime.sendMessage({ type: 'OPEN_PANEL' }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.warn('[WatchInk Popup] OPEN_PANEL runtime message failed:', chrome.runtime.lastError.message);
+          } else {
+            console.log('[WatchInk Popup] OPEN_PANEL sent to background', response);
+          }
+        });
+
       } catch (e) {
-        console.error('[WatchInk Popup] Failed to activate Disney+ tab:', e);
+        console.error('[WatchInk Popup] Failed to activate tab:', e);
       }
-      
+
+      setTimeout(() => window.close(), 500);
+    });
+
+      } catch (e) {
+        console.error('[WatchInk Popup] Failed to activate tab:', e);
+      }
+
       setTimeout(() => window.close(), 500);
     });
 
   } else {
-    statusTitle.textContent = 'Disney+ not open';
-    statusSub.textContent = 'Open Disney+ to start';
+    statusTitle.textContent = 'No supported video site open';
+    statusSub.textContent = 'Open Netflix, Prime Video, YouTube or Disney+ to start';
     statusDot.className = 'dot disconnected';
     statusIcon.textContent = '🎬';
 
-    openDisneyBtn.addEventListener('click', () => {
+    openSiteBtn.textContent = 'Open Disney+ to start';
+    openSiteBtn.addEventListener('click', () => {
       chrome.tabs.create({ url: 'https://www.disneyplus.com' });
       window.close();
     });

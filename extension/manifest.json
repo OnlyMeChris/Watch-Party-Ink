@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "WatchInk Beta",
   "version": "1.0.0",
-  "description": "Sync Disney+ playback with friends in real time. Watch together, perfectly.",
+  "description": "Sync video playback with friends in real time. Watch together, perfectly.",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -21,10 +21,7 @@
   },
   "content_scripts": [
     {
-      "matches": [
-        "https://*.disneyplus.com/*",
-        "https://*.apps.disneyplus.com/*"
-      ],
+      "matches": ["<all_urls>"],
       "js": ["content.js"],
       "run_at": "document_end"
     }
@@ -37,15 +34,12 @@
     "alarms"
   ],
   "host_permissions": [
-    "https://*.disneyplus.com/*",
-    "https://*.apps.disneyplus.com/*",
-    "http://localhost:3001/*",
-    "ws://localhost:3001/*"
+    "<all_urls>"
   ],
   "web_accessible_resources": [
     {
       "resources": ["icons/*", "styles.css"],
-      "matches": ["https://*.disneyplus.com/*", "https://*.apps.disneyplus.com/*"]
+      "matches": ["<all_urls>"]
     }
   ]
 }

@@ -14,28 +14,14 @@ async function init() {
   const statusIcon = document.getElementById('status-icon');
   const roomInfoText = document.getElementById('room-info-text');
 
-  // Search for Disney+ tab with multiple strategies
-  let disneyTab = null;
-
-  // Strategy 1: Exact URL match with pattern
-  let tabs = await chrome.tabs.query({
-    url: ['https://www.disneyplus.com/*', 'https://disneyplus.com/*']
-  });
-
-  if (tabs.length > 0) {
-    disneyTab = tabs[0];
-  } else {
-    // Strategy 2: Check all tabs for Disney+ in URL
-    const allTabs = await chrome.tabs.query({});
-    for (const tab of allTabs) {
-      if (tab.url && tab.url.includes('disneyplus.com')) {
-        disneyTab = tab;
-        break;
-      }
-    }
+  // Find the current active tab
+  let activeTab = null;
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab && tab.url && (tab.url.startsWith('https://') || tab.url.startsWith('http://'))) {
+    activeTab = tab;
   }
 
-  if (disneyTab) {
+  if (activeTab) {
     openDisneyBtn.style.display = 'none';
     openWatchinkBtn.style.display = 'flex';
 
@@ -53,38 +39,34 @@ async function init() {
       roomInfoText.style.color = '#E5173F';
       roomInfoText.style.fontWeight = '600';
     } else {
-      statusTitle.textContent = 'Disney+ is open';
+      const hostname = new URL(activeTab.url).hostname;
+      statusTitle.textContent = `Ready on ${hostname}`;
       statusSub.textContent = 'Click below to open WatchInk';
       statusDot.className = 'dot connected';
       statusIcon.textContent = '✦';
     }
 
-    // Bring Disney+ tab to focus and trigger panel open
     openWatchinkBtn.addEventListener('click', async () => {
       try {
-        console.log('[WatchInk Popup] Clicking WatchInk button, tab ID:', disneyTab.id);
-        
-        // Activate the tab
-        await chrome.tabs.update(disneyTab.id, { active: true });
-        
-        // Try to focus the window (with error handling)
-        if (disneyTab.windowId) {
+        console.log('[WatchInk Popup] Clicking WatchInk button, tab ID:', activeTab.id);
+
+        await chrome.tabs.update(activeTab.id, { active: true });
+
+        if (activeTab.windowId) {
           try {
-            await chrome.windows.update(disneyTab.windowId, { focused: true });
+            await chrome.windows.update(activeTab.windowId, { focused: true });
           } catch (e) {
             console.warn('[WatchInk Popup] Could not focus window:', e);
           }
         }
-        
-        // Try to send message with retry logic
+
         let messageAttempts = 0;
         const sendPanelMessage = () => {
           messageAttempts++;
           console.log('[WatchInk Popup] Sending OPEN_PANEL message (attempt ' + messageAttempts + ')');
-          chrome.tabs.sendMessage(disneyTab.id, { type: 'OPEN_PANEL' }, (response) => {
+          chrome.tabs.sendMessage(activeTab.id, { type: 'OPEN_PANEL' }, (response) => {
             if (chrome.runtime.lastError) {
               console.warn('[WatchInk Popup] Message failed:', chrome.runtime.lastError.message);
-              // Retry once if it failed due to timing
               if (messageAttempts < 2) {
                 console.log('[WatchInk Popup] Retrying message in 300ms...');
                 setTimeout(sendPanelMessage, 300);
@@ -94,25 +76,24 @@ async function init() {
             }
           });
         };
-        
-        // First attempt after small delay
+
         setTimeout(sendPanelMessage, 200);
-        
+
       } catch (e) {
-        console.error('[WatchInk Popup] Failed to activate Disney+ tab:', e);
+        console.error('[WatchInk Popup] Failed to activate tab:', e);
       }
-      
+
       setTimeout(() => window.close(), 500);
     });
 
   } else {
-    statusTitle.textContent = 'Disney+ not open';
-    statusSub.textContent = 'Open Disney+ to start';
+    statusTitle.textContent = 'No supported page open';
+    statusSub.textContent = 'Navigate to a streaming site to start';
     statusDot.className = 'dot disconnected';
     statusIcon.textContent = '🎬';
 
     openDisneyBtn.addEventListener('click', () => {
-      chrome.tabs.create({ url: 'https://www.disneyplus.com' });
+      chrome.tabs.create({ url: 'https://www.netflix.com' });
       window.close();
     });
   }
